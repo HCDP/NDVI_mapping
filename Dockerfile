@@ -3,7 +3,7 @@ FROM continuumio/miniconda3:latest
 
 RUN conda config --set auto_activate_base true
 
-RUN pip install pandas geopandas numpy matplotlib scikit-learn==1.0.2
+RUN pip install pandas geopandas numpy matplotlib scikit-learn==1.0.2 rasterio
 RUN pip install requests
 
 WORKDIR /docker-build
@@ -11,6 +11,8 @@ COPY download_ndvi.py .
 COPY imputate_historical_ndvi_maps.py .
 COPY mosaic_ndvi_and_make_animation.py .
 
+# COPY ./map_files /map_files
+# COPY ./trained_models /trained_models
 # Get Directory list
 #RUN wget https://raw.githubusercontent.com/ikewai/hawaii_climate_products_container/main/preliminary/air_temp/daily/docs/currentDirs.txt
 

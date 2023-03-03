@@ -55,9 +55,10 @@ os.chdir(inDir)                                      # Change to working directo
 
 island = args.island
 
-map_dir = "/home/wongy/drive/NDVI_mapping/map_files/"
 api = 'https://appeears.earthdatacloud.nasa.gov/api/'  # Set the AρρEEARS API to a variable
-model_dir = "/home/wongy/drive/trained_model/"
+
+map_dir = "/map_files/"
+model_dir = "/trained_models/"
 
 # Login
 import requests
