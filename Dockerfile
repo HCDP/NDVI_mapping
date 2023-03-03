@@ -1,8 +1,10 @@
 #FROM ikewai/task-rf-pre-base
-FROM conda/miniconda3
+FROM continuumio/miniconda3:latest
 
-RUN conda install pandas geopandas numpy rasterio matplotlib
-RUN conda install requests
+RUN conda config --set auto_activate_base true
+
+RUN pip install pandas geopandas numpy matplotlib scikit-learn==1.0.2
+RUN pip install requests
 
 WORKDIR /docker-build
 COPY download_ndvi.py .

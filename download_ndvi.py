@@ -13,22 +13,51 @@ import os, shutil
 #plt.rcParams["font.family"] = "Times New Roman"
 import time
 startTime = time.time()
-
+import argparse
 import sys
- 
-if len(sys.argv) != 4:
-    raise ValueError('Please provide username and password for https://appeears.earthdatacloud.nasa.gov/api and the output path' )
- 
-username = sys.argv[1]
-password = sys.argv[2]
 
+# Argument parser
+
+parser = argparse.ArgumentParser(
+    prog="download_ndvi.py",
+    description=""
+)
+
+parser.add_argument("username", help="username for https://appeears.earthdatacloud.nasa.gov/api")
+parser.add_argument("password", help="password for https://appeears.earthdatacloud.nasa.gov/api")
+parser.add_argument("output_path", help="output path for ndvi data for island")
+parser.add_argument("island", help="island to download ndvi data for: (nihau, kahoolawe, lanai, oahu, maui, molokai, big, kauai")
+
+args = parser.parse_args()
+
+if not args.username or not args.password:
+    parser.error("Please provide username and password for https://appeears.earthdatacloud.nasa.gov/api")
+
+if not args.output_path:
+    parser.error("Please provide an output path")
+
+list_islands = ['nihau', 'kahoolawe', 'lanai', 'oahu', 'maui', 'molokai', 'big', 'kauai']
+
+if args.island not in list_islands:
+    parser.error('Please provide a proper island name')
+
+### TODO: check if output path exists
+
+# --- DONE CHECKING ARGUMENTS --- 
+
+username = args.username
+password = args.password
 
 # Set input directory, change working directory
-inDir =  sys.argv[3] #'D:/kauai/'           # IMPORTANT: Update to reflect directory on your OS
-
-
+inDir =  args.output_path #'D:/kauai/'           # IMPORTANT: Update to reflect directory on your OS
+inDir = os.path.abspath(inDir)                  
 os.chdir(inDir)                                      # Change to working directory
+
+island = args.island
+
+map_dir = "/home/wongy/drive/NDVI_mapping/map_files/"
 api = 'https://appeears.earthdatacloud.nasa.gov/api/'  # Set the AρρEEARS API to a variable
+model_dir = "/home/wongy/drive/trained_model/"
 
 # Login
 import requests
@@ -81,7 +110,9 @@ prodLayer
 token = token_response['token']                      # Save login token to a variable
 head = {'Authorization': 'Bearer {}'.format(token)}  # Create a header to store token information, needed to submit a request
 
-nps = gpd.read_file('D:/project/ndvi_hawaii/hawaii map shp/kauai_shp/kauai.shp') # Read in shapefile as dataframe using geopandas
+### TODO: change path for shapefile to inside of docker container
+shape_file = os.path.join(map_dir, f"hawaii_map_shp/{island}_shp/{island}.shp")
+nps = gpd.read_file(shape_file) # Read in shapefile as dataframe using geopandas
 
 print(nps.head())  
 nps_gc = nps.to_json()
@@ -193,7 +224,9 @@ for f in bundle['files']:
     if f['file_name'][-27:-23]=='NDVI' and f['file_name'].endswith('.tif'):
         print(f)
         files[f['file_id']] = f['file_name']   # Fill dictionary with file_id as keys and file_name as values
-files   
+
+print("---- FILES ----")
+print(files)   
 
 
 for f in files:
@@ -228,7 +261,11 @@ plt.xlabel('Longitude')
 plt.ylabel('Latitude')
 plt.tight_layout()
 
-ref_geotiff = rio.open(r'D:/project/ndvi_hawaii/hawaii map tif/kauai.tif')
+
+# TODO: change path for .tif file to be path inside docker container
+
+geotiff_file = f"../map_files/hawaii_map_tif/{island}.tif"
+ref_geotiff = rio.open(geotiff_file)
 
 ref_geotiff_meta = ref_geotiff.profile
 ref_geotiff_pixelSizeX, ref_geotiff_pixelSizeY = ref_geotiff.res
@@ -270,25 +307,32 @@ def data_solve_nan(data):
     df_dem_replace=df_dem.replace(-3000,np.nan)
     return df_dem_replace.values           
 for t in range(len(dfs_names)):
-    MODIS_ndvi_map=rio.open(dfs_names[t], "r")
-    MODIS_ndvi_val=MODIS_ndvi_map.read(1)
-    MODIS_ndvi_val=data_solve_nan(MODIS_ndvi_val)
-    MODIS_ndvi_val=MODIS_ndvi_val*0.0001
-    #print(t)
-    Matrix_ndvi_values[t,:] = np.reshape(MODIS_ndvi_val, MODIS_ndvi_val.shape[0]*MODIS_ndvi_val.shape[1])
-    ndvi_values_pd=pd.DataFrame(Matrix_ndvi_values)
-    ndvi_index=ndvi_values_pd.values[t,:]-(df1['lat']/100000000000)
-    ndvi_index_df=pd.DataFrame(ndvi_index)
-    ndvi_index_df['ndvi']=ndvi_index_df['lat']
-
-    df_concat=pd.concat([df1,ndvi_index_df], axis=1)
-    MODIS_re_2d=np.reshape(df_concat['ndvi'].values,(ref_geotiff_data.shape[0],ref_geotiff_data.shape[1]))
-    ref_geotiff_meta['dtype'] = "float64"
-
-    with rio.open('D:/kauai_scaled/kauai_%s.tif'%dfs_names[t][-19:-12], 'w', **ref_geotiff_meta) as dst:
-        dst.write( MODIS_re_2d, 1)    
-        
-base_dir = r'D:/kauai_scaled'
+    if os.path.isfile(dfs_names[t]):
+        MODIS_ndvi_map=rio.open(dfs_names[t], "r")
+        MODIS_ndvi_val=MODIS_ndvi_map.read(1)
+        MODIS_ndvi_val=data_solve_nan(MODIS_ndvi_val)
+        MODIS_ndvi_val=MODIS_ndvi_val*0.0001
+        #print(t)
+        Matrix_ndvi_values[t,:] = np.reshape(MODIS_ndvi_val, MODIS_ndvi_val.shape[0]*MODIS_ndvi_val.shape[1])
+        ndvi_values_pd=pd.DataFrame(Matrix_ndvi_values)
+        ndvi_index=ndvi_values_pd.values[t,:]-(df1['lat']/100000000000)
+        ndvi_index_df=pd.DataFrame(ndvi_index)
+        ndvi_index_df['ndvi']=ndvi_index_df['lat']
+    
+        df_concat=pd.concat([df1,ndvi_index_df], axis=1)
+        MODIS_re_2d=np.reshape(df_concat['ndvi'].values,(ref_geotiff_data.shape[0],ref_geotiff_data.shape[1]))
+        ref_geotiff_meta['dtype'] = "float64"
+    
+        rio_path = f"{inDir}/{island}_scaled"
+        if not os.path.exists(rio_path):
+            os.makedirs(rio_path)
+    
+        rio_file = f"{rio_path}/{island}_{dfs_names[t][-19:-12]}.tif"
+    
+        with rio.open(rio_file, 'w', **ref_geotiff_meta) as dst:
+            dst.write( MODIS_re_2d, 1)    
+      
+base_dir = rio_path
 
 fnames = [os.path.join(base_dir, fname) for fname in sorted(os.listdir(base_dir))]
 
@@ -340,16 +384,21 @@ index=ndvi_values_drop[ndvi_values_drop.isnull().all(axis=1)].index
 # drop selected index
 ndvi_values_drop_final=ndvi_values_drop.drop(index)
 ndvi_fill_matrix1=ndvi_values_drop_final.copy()
-kauai_cols = pd.read_pickle("D:/project/ndvi_hawaii/entire missing columns/kauai_cols.pkl")
-ndvi_fill_matrix_final_1=ndvi_fill_matrix1.drop(kauai_cols,axis=1)
+
+### TODO: change path to path inside docker container
+island_cols = pd.read_pickle(f"../map_files/entire_missing_columns/{island}_cols.pkl")
+ndvi_fill_matrix_final_1=ndvi_fill_matrix1.drop(island_cols,axis=1)
 
 
 
 i1,c1 = ndvi_fill_matrix_final_1.shape
 split_df1=np.array_split(ndvi_fill_matrix_final_1, c1//100+1, axis=1)
+
+
 import pickle
 models = []
-with open("D:/project/ndvi_hawaii/trained models/kauai_models.pckl", "rb") as f:
+model_file = os.path.join(model_dir, f"{island}_models.pckl")
+with open(model_file, "rb") as f:
     while True:
         try:
             models.append(pickle.load(f))
@@ -369,7 +418,7 @@ data_imputed1=pd.concat(imputed_data1, axis=1, ignore_index=False)
 
 for t in range(len(data_imputed1)):
     ndvi_values_pd=pd.DataFrame(data_imputed1.loc[t])
-    image=pd.concat([pd.concat([ndvi_values_pd.T, kauai_cols], axis=1)], axis=1)
+    image=pd.concat([pd.concat([ndvi_values_pd.T, island_cols], axis=1)], axis=1)
     image_sort = image.sort_index(axis=1)
     image_index_1=image_sort.loc[t,:]-(df1_drop['lat']/100000000000)
     image_index_1_df=pd.DataFrame(image_index_1,columns=['ndvi'])
@@ -384,6 +433,8 @@ for t in range(len(data_imputed1)):
     plt.ylabel('Latitude')
     plt.tight_layout()
     ref_geotiff_meta['dtype'] = "float64"
+    
+    rio_file = os.path.join(inDir, f"{island}_{dfs_names[t][-11:-4]}.tif")
 
-    with rio.open('D:/kauai_%s.tif'%dfs_names[t][-11:-4], 'w', **ref_geotiff_meta) as dst:
+    with rio.open(rio_file, 'w', **ref_geotiff_meta) as dst:
         dst.write( MODIS_re_2d, 1)     
