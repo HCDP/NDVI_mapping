@@ -166,7 +166,7 @@ print("date and time:", date_time)
 
 
 startDate = '07-01-2022'            # Start of the date range for which to extract data: MM-DD-YYYY
-endDate =  curDT.strftime("%m/%d/%Y") 
+endDate =  curDT.strftime("%m-%d-%Y") 
 #endDate = '12-31-2021'              # End of the date range for which to extract data: MM-DD-YYYY
 recurring = False                   # Specify True for a recurring date range
 #yearRange = [2000,2016]            # if recurring = True, set yearRange, change start/end date to MM-DD
@@ -187,7 +187,8 @@ task = {'task_type': task_type[1],
     }}
 #Submit a Task Request
 task_response = r.post('{}task'.format(api), json=task, headers=head).json()  # Post json to the API task service, return response as json
-task_response  
+print("---TASK RESPONSE---")
+print(task_response)  
 
 #Retrieve Task Status
 params = {'limit': 2, 'pretty': True} # Limit API response to 2 most recent entries, return as pretty json
