@@ -3,6 +3,7 @@ FROM continuumio/miniconda3:latest
 
 RUN pip install pandas geopandas numpy matplotlib scikit-learn==1.0.2 rasterio
 RUN pip install requests
+RUN pip install tapipy agavepy
 
 WORKDIR /docker-build
 COPY download_ndvi.py /actor/
